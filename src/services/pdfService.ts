@@ -4,6 +4,42 @@ import jsPDF from 'jspdf';
 import { ProjectWithFinancials, BusinessSettings, Client } from '../types';
 import { formatCurrency, formatDate, formatInvoiceNumber } from '../utils/formatters';
 
+const dummyCtx = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
+
+// Converts oklab(...), oklch(...), color(srgb ...) or any non-standard color function to standard rgb/rgba/hex
+export const sanitizeColorString = (colorStr: string): string => {
+  if (!colorStr || typeof colorStr !== 'string') return colorStr;
+  if (!colorStr.includes('oklab') && !colorStr.includes('oklch') && !colorStr.includes('color(')) {
+    return colorStr;
+  }
+
+  return colorStr.replace(/(oklab|oklch|color)\([^)]+\)/gi, (match) => {
+    if (dummyCtx) {
+      try {
+        dummyCtx.fillStyle = 'rgba(0,0,0,0)';
+        dummyCtx.fillStyle = match;
+        const computed = dummyCtx.fillStyle;
+        if (
+          computed &&
+          computed !== 'rgba(0, 0, 0, 0)' &&
+          computed !== 'transparent' &&
+          computed !== '#00000000' &&
+          !computed.includes('oklab') &&
+          !computed.includes('oklch')
+        ) {
+          return computed;
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+    if (match.includes('0 0 0') || match.includes('0/')) {
+      return 'rgba(0, 0, 0, 0.05)';
+    }
+    return '#111827';
+  });
+};
+
 // 1. Pixel-perfect PDF generation from the rendered DOM sheet
 export const generatePDFFromElement = async (
   element: HTMLElement,
@@ -16,8 +52,42 @@ export const generatePDFFromElement = async (
     logging: false,
     backgroundColor: '#ffffff',
     windowWidth: 1200, // Enforce desktop viewport so media queries maintain flex-row & grid layouts
-    onclone: (_clonedDoc, clonedEl) => {
-      // Force exact standard printable A4 dimensions on the captured DOM clone
+    onclone: (clonedDoc, clonedEl) => {
+      // 1. Sanitize all <style> tags in the cloned document
+      const styleElements = clonedDoc.querySelectorAll('style');
+      styleElements.forEach((style) => {
+        if (style.textContent) {
+          style.textContent = sanitizeColorString(style.textContent);
+        }
+      });
+
+      // 2. Sanitize inline style attributes and computed styles on all cloned elements
+      const allElements = clonedDoc.querySelectorAll('*');
+      allElements.forEach((el) => {
+        const htmlEl = el as HTMLElement;
+        const styleAttr = htmlEl.getAttribute('style');
+        if (styleAttr && (styleAttr.includes('oklab') || styleAttr.includes('oklch') || styleAttr.includes('color('))) {
+          htmlEl.setAttribute('style', sanitizeColorString(styleAttr));
+        }
+
+        const defaultView = clonedDoc.defaultView || window;
+        try {
+          const comp = defaultView.getComputedStyle(htmlEl);
+          if (comp.color && (comp.color.includes('oklab') || comp.color.includes('oklch'))) {
+            htmlEl.style.color = sanitizeColorString(comp.color);
+          }
+          if (comp.backgroundColor && (comp.backgroundColor.includes('oklab') || comp.backgroundColor.includes('oklch'))) {
+            htmlEl.style.backgroundColor = sanitizeColorString(comp.backgroundColor);
+          }
+          if (comp.borderColor && (comp.borderColor.includes('oklab') || comp.borderColor.includes('oklch'))) {
+            htmlEl.style.borderColor = sanitizeColorString(comp.borderColor);
+          }
+        } catch (e) {
+          // ignore
+        }
+      });
+
+      // 3. Force exact standard printable A4 dimensions on the captured DOM clone
       clonedEl.style.width = '794px'; // 210mm at 96 DPI
       clonedEl.style.maxWidth = '794px';
       clonedEl.style.minWidth = '794px';
@@ -27,6 +97,7 @@ export const generatePDFFromElement = async (
       clonedEl.style.borderRadius = '0px';
       clonedEl.style.boxShadow = 'none';
       clonedEl.style.border = 'none';
+      clonedEl.style.backgroundColor = '#ffffff';
     },
   });
 
