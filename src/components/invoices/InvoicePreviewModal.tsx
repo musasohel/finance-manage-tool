@@ -69,45 +69,50 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto print:p-0 print:bg-white print:static">
-      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-[#E5E7EB] overflow-hidden my-6 transition-all print:my-0 print:shadow-none print:border-none print:max-w-none">
-        {/* Top Action Bar */}
-        <div className="bg-[#111827] text-white px-6 py-4 flex items-center justify-between no-print">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-5 w-5 text-emerald-400" />
-            <span className="font-semibold text-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-2 sm:p-4 print:p-0 print:bg-white print:static overflow-hidden">
+      <div className="w-full max-w-3xl max-h-[90vh] flex flex-col bg-white rounded-2xl shadow-2xl border border-[#E5E7EB] overflow-hidden transition-all print:max-h-none print:shadow-none print:border-none print:max-w-none">
+        {/* Top Action Bar (Always stays fixed at top of modal) */}
+        <div className="bg-[#111827] text-white px-4 sm:px-6 py-3.5 flex items-center justify-between shrink-0 no-print z-20">
+          <div className="flex items-center gap-2 min-w-0">
+            <ShieldCheck className="h-5 w-5 text-emerald-400 shrink-0" />
+            <span className="font-semibold text-xs sm:text-sm truncate">
               Invoice Preview • {formattedInvNum}
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <button
+              type="button"
               onClick={handlePrint}
-              className="hidden sm:flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white font-medium py-1.5 px-3 rounded-lg text-xs transition-all"
+              className="hidden sm:flex items-center gap-1.5 bg-white/10 hover:bg-white/20 text-white font-medium py-1.5 px-3 rounded-lg text-xs transition-all cursor-pointer"
             >
               <Printer className="h-4 w-4" />
               <span>Print</span>
             </button>
             <button
+              type="button"
               onClick={handleDownloadPDF}
               disabled={isGenerating}
-              className="flex items-center gap-1.5 bg-white text-[#111827] hover:bg-gray-100 font-semibold py-1.5 px-4 rounded-lg text-xs shadow-xs transition-all disabled:opacity-50"
+              className="flex items-center gap-1.5 bg-white text-[#111827] hover:bg-gray-100 font-semibold py-1.5 px-3.5 sm:px-4 rounded-lg text-xs shadow-xs transition-all disabled:opacity-50 cursor-pointer"
             >
               <Download className="h-4 w-4 text-[#111827]" />
               <span>{isGenerating ? 'Generating PDF...' : 'Download PDF'}</span>
             </button>
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 text-gray-400 hover:text-white rounded-lg transition-colors"
+              className="p-1.5 text-gray-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              title="Close"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* Invoice Printable Sheet */}
-        <div id="invoice-printable-sheet" className="p-8 sm:p-12 space-y-8 bg-white font-sans text-[#111827] selection:bg-gray-100 print:p-4">
-          {/* Header Row */}
+        {/* Scrollable Container containing Invoice Printable Sheet */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 md:p-12 bg-white print:overflow-visible print:p-4">
+          <div id="invoice-printable-sheet" className="space-y-8 bg-white font-sans text-[#111827] selection:bg-gray-100">
+            {/* Header Row */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-8 border-b border-[#E5E7EB]">
             <div className="flex items-start gap-4">
               {currentSettings.businessLogoUrl ? (
@@ -312,5 +317,6 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 };
