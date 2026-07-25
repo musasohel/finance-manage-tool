@@ -7,37 +7,106 @@ import { formatCurrency, formatDate, formatInvoiceNumber } from '../utils/format
 const dummyCtx = typeof document !== 'undefined' ? document.createElement('canvas').getContext('2d') : null;
 
 // Converts oklab(...), oklch(...), color(srgb ...) or any non-standard color function to standard rgb/rgba/hex
-export const sanitizeColorString = (colorStr: string): string => {
-  if (!colorStr || typeof colorStr !== 'string') return colorStr;
-  if (!colorStr.includes('oklab') && !colorStr.includes('oklch') && !colorStr.includes('color(')) {
-    return colorStr;
-  }
+function oklabToRgb(L: number, a: number, b: number, alpha: number = 1): string {
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 0.1291980197 * b;
 
-  return colorStr.replace(/(oklab|oklch|color)\([^)]+\)/gi, (match) => {
-    if (dummyCtx) {
-      try {
-        dummyCtx.fillStyle = 'rgba(0,0,0,0)';
-        dummyCtx.fillStyle = match;
-        const computed = dummyCtx.fillStyle;
-        if (
-          computed &&
-          computed !== 'rgba(0, 0, 0, 0)' &&
-          computed !== 'transparent' &&
-          computed !== '#00000000' &&
-          !computed.includes('oklab') &&
-          !computed.includes('oklch')
-        ) {
-          return computed;
-        }
-      } catch (e) {
-        // ignore
+  const l = l_ * l_ * l_;
+  const m = m_ * m_ * m_;
+  const s = s_ * s_ * s_;
+
+  const rLin = +4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  const gLin = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  const bLin = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+
+  const toSrgb = (x: number) => {
+    if (x <= 0) return 0;
+    if (x >= 1) return 255;
+    const v = x <= 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055;
+    return Math.round(Math.min(255, Math.max(0, v * 255)));
+  };
+
+  const r = toSrgb(rLin);
+  const g = toSrgb(gLin);
+  const bVal = toSrgb(bLin);
+
+  if (alpha < 1) {
+    return `rgba(${r}, ${g}, ${bVal}, ${Number(alpha.toFixed(3))})`;
+  }
+  return `rgb(${r}, ${g}, ${bVal})`;
+}
+
+function oklchToRgb(L: number, C: number, H: number, alpha: number = 1): string {
+  const hRad = (H * Math.PI) / 180;
+  const a = C * Math.cos(hRad);
+  const b = C * Math.sin(hRad);
+  return oklabToRgb(L, a, b, alpha);
+}
+
+function parseColorFunc(match: string): string {
+  try {
+    const lower = match.toLowerCase().trim();
+    if (lower.startsWith('color(srgb')) {
+      const inner = match.substring(match.indexOf('srgb') + 4, match.lastIndexOf(')')).trim();
+      const parts = inner.split('/');
+      const main = parts[0].trim().split(/\s+/).map(Number);
+      const alpha = parts[1] ? Number(parts[1].trim()) : 1;
+      if (main.length >= 3) {
+        const r = Math.round(Math.min(255, Math.max(0, main[0] <= 1 ? main[0] * 255 : main[0])));
+        const g = Math.round(Math.min(255, Math.max(0, main[1] <= 1 ? main[1] * 255 : main[1])));
+        const b = Math.round(Math.min(255, Math.max(0, main[2] <= 1 ? main[2] * 255 : main[2])));
+        return alpha < 1 ? `rgba(${r}, ${g}, ${b}, ${alpha})` : `rgb(${r}, ${g}, ${b})`;
       }
     }
-    if (match.includes('0 0 0') || match.includes('0/')) {
-      return 'rgba(0, 0, 0, 0.05)';
+
+    const inner = match.substring(match.indexOf('(') + 1, match.lastIndexOf(')')).trim();
+    const parts = inner.split('/');
+    const mainParts = parts[0].trim().replace(/,/g, ' ').split(/\s+/).filter(Boolean);
+
+    if (mainParts.length < 3) return match;
+
+    const parseVal = (str: string, maxVal: number = 1) => {
+      if (str.endsWith('%')) return (parseFloat(str) / 100) * maxVal;
+      if (str.endsWith('deg')) return parseFloat(str);
+      return parseFloat(str);
+    };
+
+    const L = parseVal(mainParts[0], 1);
+    const C_or_A = parseVal(mainParts[1], 1);
+    const H_or_B = parseVal(mainParts[2], 1);
+
+    let alpha = 1;
+    if (parts.length > 1) {
+      alpha = parseVal(parts[1].trim(), 1);
+    } else if (mainParts.length >= 4) {
+      alpha = parseVal(mainParts[3], 1);
     }
-    return '#111827';
-  });
+
+    if (lower.startsWith('oklch')) {
+      return oklchToRgb(L, C_or_A, H_or_B, alpha);
+    } else if (lower.startsWith('oklab')) {
+      return oklabToRgb(L, C_or_A, H_or_B, alpha);
+    }
+  } catch (e) {
+    // ignore
+  }
+  return match;
+}
+
+export const sanitizeColorString = (cssText: string): string => {
+  if (!cssText || typeof cssText !== 'string') return cssText;
+  if (!cssText.includes('oklab') && !cssText.includes('oklch') && !cssText.includes('color(') && !cssText.includes('color-mix')) {
+    return cssText;
+  }
+
+  let result = cssText.replace(/(oklab|oklch|color)\([^)]+\)/gi, (m) => parseColorFunc(m));
+
+  if (result.includes('color-mix')) {
+    result = result.replace(/color-mix\([^)]+\)/gi, 'rgba(0, 0, 0, 0.05)');
+  }
+
+  return result;
 };
 
 // 1. Pixel-perfect PDF generation from the rendered DOM sheet
