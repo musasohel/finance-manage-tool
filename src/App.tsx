@@ -4,6 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Sidebar, ActiveTab } from './components/layout/Sidebar';
 import { Navbar } from './components/layout/Navbar';
@@ -339,6 +340,7 @@ export default function App() {
   return (
     <AuthProvider>
       <MainContent />
+      <Analytics />
     </AuthProvider>
   );
 }
