@@ -15,6 +15,10 @@ export interface BusinessSettings {
   email: string;
   address: string;
   businessLogoUrl: string; // Base64 or URL
+  authorizedSignatureUrl?: string; // Base64 or URL for signature
+  signatoryName?: string; // e.g. "M. Husain"
+  signatoryTitle?: string; // e.g. "Authorized Signatory"
+  showSignatureOnInvoice?: boolean;
   invoicePrefix: string; // default "INV"
   nextInvoiceNumber: number; // default 1
   currencySymbol: string; // e.g. "BDT", "$", "€", "£"

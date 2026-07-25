@@ -383,7 +383,7 @@ export const generateInvoicePDF = async (
     y -= 12;
   }
 
-  // Financial Summary Box (Right aligned)
+  // Financial Summary Box (Right aligned) & Authorized Signature (Left aligned)
   const sumBoxWidth = 220;
   const sumBoxX = rightMargin - sumBoxWidth;
 
@@ -416,6 +416,63 @@ export const generateInvoicePDF = async (
   page.drawText('Amount Due:', { x: sumBoxX + 12, y: sumY, size: 9.5, font: helveticaBold, color: darkText });
   const remColor = project.remainingAmount > 0 ? redColor : greenColor;
   drawTextRight(page, formatCurrency(project.remainingAmount, settings.currencySymbol), rightMargin - 12, sumY, 9.5, helveticaBold, remColor);
+
+  // Authorized Signature Block (Left side)
+  if (settings.showSignatureOnInvoice !== false) {
+    let sigY = y;
+    let sigImgEmbedded = false;
+
+    if (settings.authorizedSignatureUrl && settings.authorizedSignatureUrl.startsWith('data:image')) {
+      try {
+        const base64Sig = settings.authorizedSignatureUrl.split(',')[1];
+        const sigBytes = Uint8Array.from(atob(base64Sig), c => c.charCodeAt(0));
+        let sigImg;
+        if (settings.authorizedSignatureUrl.includes('image/png')) {
+          sigImg = await pdfDoc.embedPng(sigBytes);
+        } else {
+          sigImg = await pdfDoc.embedJpg(sigBytes);
+        }
+        const sigDims = sigImg.scale(30 / sigImg.height);
+        page.drawImage(sigImg, {
+          x: leftMargin,
+          y: sigY - 32,
+          width: Math.min(sigDims.width, 140),
+          height: sigDims.height,
+        });
+        sigImgEmbedded = true;
+      } catch (err) {
+        console.warn('Could not embed signature image in PDF:', err);
+      }
+    }
+
+    if (!sigImgEmbedded) {
+      // Draw signature line
+      page.drawLine({
+        start: { x: leftMargin, y: sigY - 20 },
+        end: { x: leftMargin + 140, y: sigY - 20 },
+        thickness: 1,
+        color: darkText,
+      });
+    }
+
+    const nameStr = truncateToWidth(settings.signatoryName || 'Authorized Representative', 180, 9, helveticaBold);
+    page.drawText(nameStr, {
+      x: leftMargin,
+      y: sigY - 36,
+      size: 9,
+      font: helveticaBold,
+      color: darkText,
+    });
+
+    const titleStr = truncateToWidth(settings.signatoryTitle || 'Authorized Signatory', 180, 8, helvetica);
+    page.drawText(titleStr, {
+      x: leftMargin,
+      y: sigY - 48,
+      size: 8,
+      font: helvetica,
+      color: mutedText,
+    });
+  }
 
   y = sumY - 45;
 

@@ -11,7 +11,9 @@ import {
   ShieldCheck,
   DollarSign,
   Sparkles,
-  Trash2
+  Trash2,
+  PenTool,
+  UserCheck
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { updateBusinessSettings } from '../../services/settingsService';
@@ -25,6 +27,10 @@ export const SettingsView: React.FC = () => {
   const [email, setEmail] = useState(settings?.email || '');
   const [address, setAddress] = useState(settings?.address || '');
   const [businessLogoUrl, setBusinessLogoUrl] = useState(settings?.businessLogoUrl || '');
+  const [authorizedSignatureUrl, setAuthorizedSignatureUrl] = useState(settings?.authorizedSignatureUrl || '');
+  const [signatoryName, setSignatoryName] = useState(settings?.signatoryName || 'Authorized Representative');
+  const [signatoryTitle, setSignatoryTitle] = useState(settings?.signatoryTitle || 'Authorized Signatory');
+  const [showSignatureOnInvoice, setShowSignatureOnInvoice] = useState(settings?.showSignatureOnInvoice ?? true);
   const [invoicePrefix, setInvoicePrefix] = useState(settings?.invoicePrefix || 'INV');
   const [currencySymbol, setCurrencySymbol] = useState(settings?.currencySymbol || 'BDT');
 
@@ -39,12 +45,16 @@ export const SettingsView: React.FC = () => {
       setEmail(settings.email || '');
       setAddress(settings.address || '');
       setBusinessLogoUrl(settings.businessLogoUrl || '');
+      setAuthorizedSignatureUrl(settings.authorizedSignatureUrl || '');
+      setSignatoryName(settings.signatoryName || 'Authorized Representative');
+      setSignatoryTitle(settings.signatoryTitle || 'Authorized Signatory');
+      setShowSignatureOnInvoice(settings.showSignatureOnInvoice ?? true);
       setInvoicePrefix(settings.invoicePrefix || 'INV');
       setCurrencySymbol(settings.currencySymbol || 'BDT');
     }
   }, [settings]);
 
-  // Handle Logo File Upload (Compress to base64 Data URL)
+  // Handle Logo File Upload
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -57,6 +67,23 @@ export const SettingsView: React.FC = () => {
     const reader = new FileReader();
     reader.onloadend = () => {
       setBusinessLogoUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle Authorized Signature File Upload
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMessage('Signature image size must be smaller than 2MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAuthorizedSignatureUrl(reader.result as string);
     };
     reader.readAsDataURL(file);
   };
@@ -76,6 +103,10 @@ export const SettingsView: React.FC = () => {
         email,
         address,
         businessLogoUrl,
+        authorizedSignatureUrl,
+        signatoryName,
+        signatoryTitle,
+        showSignatureOnInvoice,
         invoicePrefix: invoicePrefix.trim().toUpperCase() || 'INV',
         currencySymbol: currencySymbol.trim() || 'BDT',
       });
@@ -248,6 +279,116 @@ export const SettingsView: React.FC = () => {
                 onChange={(e) => setAddress(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 border border-[#E5E7EB] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#111827]/20 focus:border-[#111827]"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Authorized Signature Configuration */}
+        <div className="bg-white p-6 rounded-2xl border border-[#E5E7EB] shadow-2xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <PenTool className="h-4 w-4 text-[#111827]" />
+              <h3 className="text-sm font-semibold text-[#111827]">Authorized Signature</h3>
+            </div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showSignatureOnInvoice}
+                onChange={(e) => setShowSignatureOnInvoice(e.target.checked)}
+                className="rounded border-gray-300 text-[#111827] focus:ring-[#111827]"
+              />
+              <span className="text-xs font-semibold text-[#111827]">Show on Invoices</span>
+            </label>
+          </div>
+
+          <p className="text-xs text-[#6B7280]">
+            Upload a transparent digital signature image or enter signatory details to appear at the bottom of generated invoices.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            {/* Left: Inputs */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-[#111827] mb-1">
+                  Signature Image (Optional)
+                </label>
+                <div className="flex items-center gap-3">
+                  <label className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-[#E5E7EB] hover:bg-gray-50 text-[#111827] rounded-xl text-xs font-semibold cursor-pointer shadow-2xs transition-all">
+                    <Upload className="h-3.5 w-3.5 text-[#6B7280]" />
+                    <span>Upload Signature</span>
+                    <input
+                      type="file"
+                      accept="image/png, image/jpeg, image/webp"
+                      onChange={handleSignatureUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  {authorizedSignatureUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setAuthorizedSignatureUrl('')}
+                      className="px-2.5 py-2 text-rose-600 hover:bg-rose-50 rounded-xl text-xs font-medium transition-colors border border-rose-200"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-[10px] text-[#6B7280] mt-1">PNG with transparent background recommended (Max 2MB)</p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#111827] mb-1">
+                  Signatory Name
+                </label>
+                <div className="relative">
+                  <UserCheck className="absolute left-3 top-2.5 h-4 w-4 text-[#6B7280]" />
+                  <input
+                    type="text"
+                    placeholder="e.g. M. Husain"
+                    value={signatoryName}
+                    onChange={(e) => setSignatoryName(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 border border-[#E5E7EB] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#111827]/20 focus:border-[#111827]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-[#111827] mb-1">
+                  Signatory Designation / Title
+                </label>
+                <div className="relative">
+                  <Building className="absolute left-3 top-2.5 h-4 w-4 text-[#6B7280]" />
+                  <input
+                    type="text"
+                    placeholder="e.g. Authorized Signatory / Lead Designer"
+                    value={signatoryTitle}
+                    onChange={(e) => setSignatoryTitle(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 border border-[#E5E7EB] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#111827]/20 focus:border-[#111827]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Signature Preview */}
+            <div className="p-4 rounded-xl bg-gray-50 border border-[#E5E7EB] space-y-2">
+              <p className="text-[11px] font-bold text-[#6B7280] uppercase tracking-wider">
+                Invoice Signature Preview
+              </p>
+              <div className="p-4 bg-white rounded-lg border border-gray-200 text-center min-h-[110px] flex flex-col justify-end items-center">
+                {authorizedSignatureUrl ? (
+                  <img
+                    src={authorizedSignatureUrl}
+                    alt="Authorized Signature"
+                    className="h-12 max-w-[160px] object-contain mb-1"
+                  />
+                ) : (
+                  <div className="w-36 border-b border-gray-400 mb-1 h-8 flex items-end justify-center">
+                    <span className="text-[10px] italic text-gray-400 pb-0.5">(Physical Signature Line)</span>
+                  </div>
+                )}
+                <p className="text-xs font-bold text-[#111827]">{signatoryName || 'Signatory Name'}</p>
+                <p className="text-[11px] text-[#6B7280]">{signatoryTitle || 'Authorized Signatory'}</p>
+              </div>
             </div>
           </div>
         </div>

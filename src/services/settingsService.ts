@@ -8,6 +8,10 @@ export const DEFAULT_SETTINGS: Omit<BusinessSettings, 'userId'> = {
   email: 'designer@studio.com',
   address: 'Level 4, Creative Hub, Dhaka, Bangladesh',
   businessLogoUrl: '',
+  authorizedSignatureUrl: '',
+  signatoryName: 'Authorized Representative',
+  signatoryTitle: 'Authorized Signatory',
+  showSignatureOnInvoice: true,
   invoicePrefix: 'INV',
   nextInvoiceNumber: 1,
   currencySymbol: 'BDT'

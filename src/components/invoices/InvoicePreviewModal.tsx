@@ -248,9 +248,37 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
             </div>
           )}
 
-          {/* Total Financial Summary Box */}
-          <div className="flex justify-end pt-2">
-            <div className="w-full sm:w-72 rounded-2xl bg-gray-50 border border-[#E5E7EB] p-4 space-y-2">
+          {/* Financial Summary & Authorized Signature Block */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between gap-6 pt-2">
+            {/* Authorized Signature Block */}
+            {currentSettings.showSignatureOnInvoice !== false && (
+              <div className="order-2 sm:order-1 flex flex-col items-start space-y-1">
+                <div className="min-h-[50px] flex items-end justify-start pb-1">
+                  {currentSettings.authorizedSignatureUrl ? (
+                    <img
+                      src={currentSettings.authorizedSignatureUrl}
+                      alt="Authorized Signature"
+                      className="h-12 max-w-[180px] object-contain"
+                    />
+                  ) : (
+                    <div className="w-44 border-b border-[#111827] pb-1 font-serif text-sm italic text-gray-500">
+                      {currentSettings.signatoryName || 'Signature'}
+                    </div>
+                  )}
+                </div>
+                <div className="pt-1 border-t border-[#E5E7EB] w-44">
+                  <p className="text-xs font-bold text-[#111827]">
+                    {currentSettings.signatoryName || 'Authorized Representative'}
+                  </p>
+                  <p className="text-[11px] text-[#6B7280]">
+                    {currentSettings.signatoryTitle || 'Authorized Signatory'}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Total Financial Summary Box */}
+            <div className="order-1 sm:order-2 w-full sm:w-72 rounded-2xl bg-gray-50 border border-[#E5E7EB] p-4 space-y-2 ml-auto">
               <div className="flex justify-between items-center text-xs">
                 <span className="text-[#6B7280]">Total Project Price</span>
                 <span className="font-semibold text-[#111827]">
