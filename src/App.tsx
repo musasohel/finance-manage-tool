@@ -15,13 +15,14 @@ import { SettingsView } from './components/settings/SettingsView';
 import { AuthModal } from './components/auth/AuthModal';
 import { AddClientModal } from './components/clients/AddClientModal';
 import { AddProjectModal } from './components/projects/AddProjectModal';
+import { EditProjectModal } from './components/projects/EditProjectModal';
 import { AddPaymentModal } from './components/payments/AddPaymentModal';
 import { ProjectDetailModal } from './components/projects/ProjectDetailModal';
 import { InvoicePreviewModal } from './components/invoices/InvoicePreviewModal';
 
 import { Client, ProjectWithFinancials, Project } from './types';
 import { getClients, addClient, updateClient, deleteClient } from './services/clientService';
-import { getProjectsWithFinancials, addProject, deleteProject, deleteInvoice, ensureProjectInvoice } from './services/projectService';
+import { getProjectsWithFinancials, addProject, updateProject, deleteProject, deleteInvoice, ensureProjectInvoice } from './services/projectService';
 import { addPayment, deletePayment } from './services/paymentService';
 import { seedSampleData } from './services/demoDataService';
 
@@ -42,6 +43,7 @@ const MainContent: React.FC = () => {
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [isAddProjectOpen, setIsAddProjectOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<ProjectWithFinancials | null>(null);
   const [preselectedClientId, setPreselectedClientId] = useState<string | undefined>(undefined);
 
   const [selectedProjectDetail, setSelectedProjectDetail] = useState<ProjectWithFinancials | null>(null);
@@ -107,12 +109,21 @@ const MainContent: React.FC = () => {
     }
   };
 
-  // Handle Project Add/Delete
+  // Handle Project Add/Edit/Delete
   const handleSaveProject = async (
     projectData: Omit<Project, 'id' | 'userId' | 'status' | 'createdAt'>
   ) => {
     if (!activeUserId) return;
     await addProject(activeUserId, projectData);
+    await loadWorkspaceData();
+  };
+
+  const handleUpdateProject = async (projectId: string, updates: Partial<Project>) => {
+    await updateProject(projectId, updates);
+    setEditingProject(null);
+    if (selectedProjectDetail?.id === projectId) {
+      setSelectedProjectDetail(null);
+    }
     await loadWorkspaceData();
   };
 
@@ -262,6 +273,7 @@ const MainContent: React.FC = () => {
                       onPreviewInvoice={handlePreviewInvoice}
                       onRecordPayment={(p) => setSelectedProjectPayment(p)}
                       onDeleteProject={handleDeleteProject}
+                      onEditProject={(p) => setEditingProject(p)}
                       searchQuery={searchQuery}
                     />
                   )}
@@ -350,6 +362,17 @@ const MainContent: React.FC = () => {
           onDeletePayment={handleDeletePayment}
           onGenerateInvoice={(p) => setSelectedProjectInvoice(p)}
           onDeleteProject={handleDeleteProject}
+          onEditProject={(p) => setEditingProject(p)}
+        />
+      )}
+
+      {editingProject && (
+        <EditProjectModal
+          isOpen={!!editingProject}
+          onClose={() => setEditingProject(null)}
+          project={editingProject}
+          clients={clients}
+          onSubmit={handleUpdateProject}
         />
       )}
 

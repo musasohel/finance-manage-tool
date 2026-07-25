@@ -6,6 +6,7 @@ import {
   CreditCard,
   Download,
   Trash2,
+  Edit3,
   ExternalLink,
   DollarSign,
   User,
@@ -26,6 +27,7 @@ interface ProjectsViewProps {
   onPreviewInvoice: (project: ProjectWithFinancials) => void;
   onRecordPayment: (project: ProjectWithFinancials) => void;
   onDeleteProject: (projectId: string) => void;
+  onEditProject?: (project: ProjectWithFinancials) => void;
   searchQuery: string;
 }
 
@@ -37,6 +39,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
   onPreviewInvoice,
   onRecordPayment,
   onDeleteProject,
+  onEditProject,
   searchQuery,
 }) => {
   const { settings } = useAuth();
@@ -261,6 +264,16 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                     <span>PDF</span>
                   </button>
 
+                  {onEditProject && (
+                    <button
+                      onClick={() => onEditProject(p)}
+                      title="Edit Project Info"
+                      className="p-1.5 text-gray-500 hover:text-[#111827] hover:bg-gray-100 rounded-lg transition-colors"
+                    >
+                      <Edit3 className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+
                   <button
                     onClick={() => onDeleteProject(p.id)}
                     title="Delete Project"
@@ -337,6 +350,15 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                         >
                           PDF
                         </button>
+                        {onEditProject && (
+                          <button
+                            onClick={() => onEditProject(p)}
+                            title="Edit Project Info"
+                            className="p-1 text-gray-500 hover:text-[#111827] hover:bg-gray-100 rounded-md"
+                          >
+                            <Edit3 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <button
                           onClick={() => onDeleteProject(p.id)}
                           className="p-1 text-gray-400 hover:text-rose-600 rounded-md"

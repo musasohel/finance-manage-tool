@@ -21,6 +21,7 @@ import { formatCurrency, formatDate } from '../../utils/formatters';
 import { Badge } from '../common/Badge';
 import { Pagination } from '../common/Pagination';
 import { useAuth } from '../../context/AuthContext';
+import { RevenueOverview } from './RevenueOverview';
 
 interface DashboardViewProps {
   clients: Client[];
@@ -268,6 +269,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Revenue Overview Section */}
+      <RevenueOverview projects={projects} />
 
       {/* Upcoming Deadlines Section */}
       <div className="bg-white rounded-2xl border border-[#E5E7EB] shadow-2xs overflow-hidden">

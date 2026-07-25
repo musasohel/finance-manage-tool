@@ -25,6 +25,7 @@ interface ProjectDetailModalProps {
   onDeletePayment: (paymentId: string) => Promise<void>;
   onGenerateInvoice: (project: ProjectWithFinancials) => void;
   onDeleteProject: (projectId: string) => void;
+  onEditProject?: (project: ProjectWithFinancials) => void;
 }
 
 export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
@@ -36,6 +37,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
   onDeletePayment,
   onGenerateInvoice,
   onDeleteProject,
+  onEditProject,
 }) => {
   const { settings } = useAuth();
   const [deletingPaymentId, setDeletingPaymentId] = useState<string | null>(null);
@@ -179,7 +181,20 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
             <span>Delete Project</span>
           </button>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            {onEditProject && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onEditProject(project);
+                }}
+                className="flex items-center gap-1.5 border border-[#E5E7EB] hover:bg-gray-100 text-[#111827] font-semibold py-2 px-3.5 rounded-xl text-xs transition-all"
+              >
+                <Edit className="h-3.5 w-3.5" />
+                <span>Edit Project</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 onClose();
