@@ -36,7 +36,8 @@ export const seedSampleData = async (userId: string) => {
       projectName: 'Complete Brand Identity Refresh',
       service: 'Logo & Brand Guidelines',
       totalPrice: 20000,
-      createdDate: '2026-07-01'
+      createdDate: '2026-07-01',
+      dueDate: '2026-07-28'
     });
 
     await addPayment(userId, p1.id, client1.id, p1.totalPrice, 5000, '2026-07-02', 'Initial 25% Deposit');
@@ -49,7 +50,8 @@ export const seedSampleData = async (userId: string) => {
       projectName: 'Mobile App UI/UX Redesign',
       service: 'Figma UI/UX & Design System',
       totalPrice: 35000,
-      createdDate: '2026-07-10'
+      createdDate: '2026-07-10',
+      dueDate: '2026-08-05'
     });
 
     await addPayment(userId, p2.id, client2.id, p2.totalPrice, 15000, '2026-07-12', 'Upfront retainer');
@@ -61,7 +63,8 @@ export const seedSampleData = async (userId: string) => {
       projectName: 'Summer Collection Packaging Design',
       service: 'Packaging & Apparel Labels',
       totalPrice: 12000,
-      createdDate: '2026-06-15'
+      createdDate: '2026-06-15',
+      dueDate: '2026-07-20'
     });
 
     await addPayment(userId, p3.id, client3.id, p3.totalPrice, 6000, '2026-06-16', '50% Upfront');

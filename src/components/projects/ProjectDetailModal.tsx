@@ -65,6 +65,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
             </div>
             <p className="text-xs text-[#6B7280]">
               Invoice #: <span className="font-semibold text-[#111827]">{project.invoiceNumber && !project.invoiceDeleted ? formatInvoiceNumber(settings?.invoicePrefix, project.invoiceNumber) : 'No Active Invoice'}</span> • Client: <span className="font-semibold text-[#111827]">{project.clientName}</span> • Service: {project.service} • Date: {formatDate(project.createdDate)}
+              {project.dueDate && <> • Deadline: <span className="font-semibold text-[#111827]">{formatDate(project.dueDate)}</span></>}
             </p>
           </div>
 

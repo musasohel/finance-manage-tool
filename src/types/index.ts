@@ -42,6 +42,7 @@ export interface Project {
   service: string; // e.g., "Logo Design", "Brand Guidelines", "UI/UX Design", "Social Media Graphics"
   totalPrice: number;
   createdDate: string; // YYYY-MM-DD
+  dueDate?: string; // YYYY-MM-DD
   status: PaymentStatus;
   invoiceNumber?: string; // e.g. "INV-0001"
   invoiceDeleted?: boolean;
