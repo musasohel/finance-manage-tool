@@ -9,39 +9,58 @@ export const generatePDFFromElement = async (
   element: HTMLElement,
   filename: string
 ): Promise<void> => {
-  // Capture HTML DOM with html2canvas
+  // Capture HTML DOM with html2canvas at desktop A4 canvas dimensions
   const canvas = await html2canvas(element, {
-    scale: 2, // 2x DPI for crisp high-resolution rendering
+    scale: 2, // 2x DPI for ultra-crisp high-resolution vector/text output
     useCORS: true,
     logging: false,
     backgroundColor: '#ffffff',
+    windowWidth: 1200, // Enforce desktop viewport so media queries maintain flex-row & grid layouts
+    onclone: (_clonedDoc, clonedEl) => {
+      // Force exact standard printable A4 dimensions on the captured DOM clone
+      clonedEl.style.width = '794px'; // 210mm at 96 DPI
+      clonedEl.style.maxWidth = '794px';
+      clonedEl.style.minWidth = '794px';
+      clonedEl.style.margin = '0 auto';
+      clonedEl.style.padding = '48px';
+      clonedEl.style.boxSizing = 'border-box';
+      clonedEl.style.borderRadius = '0px';
+      clonedEl.style.boxShadow = 'none';
+      clonedEl.style.border = 'none';
+    },
   });
 
-  const imgData = canvas.toDataURL('image/png');
+  const imgData = canvas.toDataURL('image/png', 1.0);
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
   });
 
-  const pdfWidth = pdf.internal.pageSize.getWidth(); // 210 mm
-  const pdfHeight = pdf.internal.pageSize.getHeight(); // 297 mm
+  const pdfWidth = pdf.internal.pageSize.getWidth(); // 210 mm (Standard A4)
+  const pdfHeight = pdf.internal.pageSize.getHeight(); // 297 mm (Standard A4)
 
-  const margin = 10; // 10mm margin
-  const imgWidth = pdfWidth - margin * 2; // 190 mm
+  // Full-bleed width using the sheet's internal padding (no double margin offset)
+  const imgWidth = pdfWidth; 
   const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-  let heightLeft = imgHeight;
-  let position = margin;
+  if (imgHeight <= pdfHeight) {
+    // Fits single page perfectly
+    pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight, undefined, 'FAST');
+  } else {
+    // Multi-page page-slicing
+    let heightLeft = imgHeight;
+    let position = 0;
 
-  pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
-  heightLeft -= pdfHeight - margin * 2;
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+    heightLeft -= pdfHeight;
 
-  while (heightLeft > 0) {
-    position = heightLeft - imgHeight + margin;
-    pdf.addPage();
-    pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
-    heightLeft -= pdfHeight - margin * 2;
+    while (heightLeft > 0) {
+      position -= pdfHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= pdfHeight;
+    }
   }
 
   pdf.save(filename);
