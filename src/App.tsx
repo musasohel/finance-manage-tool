@@ -320,6 +320,21 @@ const MainContent: React.FC = () => {
                 </>
               )}
             </main>
+
+            {/* App Footer */}
+            <footer className="py-4 px-6 border-t border-[#E5E7EB] bg-white text-center text-xs text-[#6B7280]">
+              <p>
+                Developed by{' '}
+                <a
+                  href="https://v0-musasohel.vercel.app/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-[#111827] hover:underline hover:text-blue-600 transition-colors"
+                >
+                  Mohammad Sohel
+                </a>
+              </p>
+            </footer>
           </div>
         </div>
       )}

@@ -261,6 +261,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen }) => {
               <span>Explore Demo Mode (No Login Required)</span>
             </button>
           </div>
+
+          {/* Developer Credit */}
+          <div className="pt-3 border-t border-gray-100 text-center">
+            <p className="text-[11px] text-[#6B7280]">
+              Developed by{' '}
+              <a
+                href="https://v0-musasohel.vercel.app/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-[#111827] hover:underline hover:text-blue-600 transition-colors"
+              >
+                Mohammad Sohel
+              </a>
+            </p>
+          </div>
         </div>
       </div>
     </div>
