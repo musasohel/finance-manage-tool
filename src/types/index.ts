@@ -44,6 +44,7 @@ export interface Project {
   createdDate: string; // YYYY-MM-DD
   status: PaymentStatus;
   invoiceNumber?: string; // e.g. "INV-0001"
+  invoiceDeleted?: boolean;
   createdAt: string;
   updatedAt?: string;
 }

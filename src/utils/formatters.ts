@@ -30,10 +30,25 @@ export const formatDate = (dateString: string): string => {
   }
 };
 
-export const formatInvoiceNumber = (prefix: string = 'INV', num: number = 1): string => {
-  const cleanPrefix = (prefix || 'INV').trim().toUpperCase();
-  const paddedNum = String(num).padStart(4, '0');
-  return `${cleanPrefix}-${paddedNum}`;
+export const formatInvoiceNumber = (prefix?: string, numOrStr?: number | string): string => {
+  const cleanPrefix = (prefix && prefix.trim() ? prefix.trim() : 'INV').toUpperCase();
+  
+  let numStr = '0001';
+  if (typeof numOrStr === 'number') {
+    numStr = String(numOrStr).padStart(4, '0');
+  } else if (typeof numOrStr === 'string' && numOrStr.trim()) {
+    const match = numOrStr.match(/\d+/);
+    if (match) {
+      numStr = match[0].padStart(4, '0');
+    } else {
+      numStr = numOrStr.trim();
+    }
+  }
+
+  if (/[-/_.:]$/.test(cleanPrefix)) {
+    return `${cleanPrefix}${numStr}`;
+  }
+  return `${cleanPrefix}-${numStr}`;
 };
 
 export const validateEmail = (email: string): boolean => {

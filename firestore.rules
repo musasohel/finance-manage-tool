@@ -3,30 +3,30 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // User profile
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if (request.auth != null && request.auth.uid == userId) || userId == 'demo-guest-user';
     }
     
     // Settings
     match /settings/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, write: if (request.auth != null && request.auth.uid == userId) || userId == 'demo-guest-user';
     }
     
     // Clients
     match /clients/{clientId} {
-      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read, delete, update: if (request.auth != null && resource.data.userId == request.auth.uid) || resource.data.userId == 'demo-guest-user';
+      allow create: if (request.auth != null && request.resource.data.userId == request.auth.uid) || request.resource.data.userId == 'demo-guest-user';
     }
     
     // Projects
     match /projects/{projectId} {
-      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read, delete, update: if (request.auth != null && resource.data.userId == request.auth.uid) || resource.data.userId == 'demo-guest-user';
+      allow create: if (request.auth != null && request.resource.data.userId == request.auth.uid) || request.resource.data.userId == 'demo-guest-user';
     }
     
     // Payments
     match /payments/{paymentId} {
-      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read, delete, update: if (request.auth != null && resource.data.userId == request.auth.uid) || resource.data.userId == 'demo-guest-user';
+      allow create: if (request.auth != null && request.resource.data.userId == request.auth.uid) || request.resource.data.userId == 'demo-guest-user';
     }
   }
 }

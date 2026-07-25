@@ -12,7 +12,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { ProjectWithFinancials, Client, PaymentStatus } from '../../types';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatInvoiceNumber } from '../../utils/formatters';
 import { Badge } from '../common/Badge';
 import { Pagination } from '../common/Pagination';
 import { useAuth } from '../../context/AuthContext';
@@ -24,7 +24,7 @@ interface InvoicesViewProps {
   onSelectProject: (project: ProjectWithFinancials) => void;
   onPreviewInvoice: (project: ProjectWithFinancials) => void;
   onRecordPayment: (project: ProjectWithFinancials) => void;
-  onDeleteProject: (projectId: string) => void;
+  onDeleteInvoice: (projectId: string) => void;
   searchQuery: string;
 }
 
@@ -35,7 +35,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   onSelectProject,
   onPreviewInvoice,
   onRecordPayment,
-  onDeleteProject,
+  onDeleteInvoice,
   searchQuery,
 }) => {
   const { settings } = useAuth();
@@ -46,6 +46,10 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   // Filter projects by search query and status filter
   const filteredProjects = useMemo(() => {
     return projects.filter((p) => {
+      // Hide deleted/cleared invoices
+      if (p.invoiceDeleted) {
+        return false;
+      }
       // Status filter
       if (statusFilter !== 'ALL' && p.status !== statusFilter) {
         return false;
@@ -53,14 +57,16 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
       // Search filter
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
+      const formattedNum = formatInvoiceNumber(settings?.invoicePrefix, p.invoiceNumber).toLowerCase();
       return (
         p.projectName.toLowerCase().includes(q) ||
         p.clientName.toLowerCase().includes(q) ||
         p.service.toLowerCase().includes(q) ||
+        formattedNum.includes(q) ||
         (p.invoiceNumber && p.invoiceNumber.toLowerCase().includes(q))
       );
     });
-  }, [projects, searchQuery, statusFilter]);
+  }, [projects, searchQuery, statusFilter, settings]);
 
   const totalPages = Math.ceil(filteredProjects.length / itemsPerPage);
   const paginatedProjects = useMemo(() => {
@@ -122,7 +128,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                 paginatedProjects.map((p) => (
                   <tr key={p.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="px-5 py-4 font-bold text-[#111827]">
-                      {p.invoiceNumber || 'INV-0001'}
+                      {formatInvoiceNumber(settings?.invoicePrefix, p.invoiceNumber)}
                     </td>
                     <td className="px-5 py-4">
                       <p className="font-semibold text-[#111827]">{p.projectName}</p>
@@ -170,8 +176,8 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                         </button>
 
                         <button
-                          onClick={() => onDeleteProject(p.id)}
-                          title="Delete Project"
+                          onClick={() => onDeleteInvoice(p.id)}
+                          title="Delete Invoice"
                           className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                         >
                           <Trash2 className="h-4 w-4" />

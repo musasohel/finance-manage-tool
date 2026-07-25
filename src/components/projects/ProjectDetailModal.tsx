@@ -12,7 +12,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { ProjectWithFinancials, Client } from '../../types';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatInvoiceNumber } from '../../utils/formatters';
 import { Badge } from '../common/Badge';
 import { useAuth } from '../../context/AuthContext';
 
@@ -64,7 +64,7 @@ export const ProjectDetailModal: React.FC<ProjectDetailModalProps> = ({
               <Badge status={project.status} size="md" />
             </div>
             <p className="text-xs text-[#6B7280]">
-              Client: <span className="font-semibold text-[#111827]">{project.clientName}</span> • Service: {project.service} • Date: {formatDate(project.createdDate)}
+              Invoice #: <span className="font-semibold text-[#111827]">{project.invoiceNumber && !project.invoiceDeleted ? formatInvoiceNumber(settings?.invoicePrefix, project.invoiceNumber) : 'No Active Invoice'}</span> • Client: <span className="font-semibold text-[#111827]">{project.clientName}</span> • Service: {project.service} • Date: {formatDate(project.createdDate)}
             </p>
           </div>
 

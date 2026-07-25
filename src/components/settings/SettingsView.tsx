@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { updateBusinessSettings } from '../../services/settingsService';
-import { BusinessSettings } from '../../types';
+import { formatCurrency, formatDate, formatInvoiceNumber } from '../../utils/formatters';
 
 export const SettingsView: React.FC = () => {
   const { user, isGuestMode, settings, refreshSettings } = useAuth();
@@ -276,7 +276,7 @@ export const SettingsView: React.FC = () => {
             <div className="p-3.5 rounded-xl bg-gray-50 border border-[#E5E7EB]">
               <p className="text-xs text-[#6B7280]">Live Invoice Format Example:</p>
               <p className="text-sm font-bold text-[#111827] mt-0.5">
-                {invoicePrefix || 'INV'}-0001
+                {formatInvoiceNumber(invoicePrefix, 1)}
               </p>
             </div>
           </div>

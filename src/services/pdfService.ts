@@ -1,14 +1,108 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 import { ProjectWithFinancials, BusinessSettings, Client } from '../types';
-import { formatCurrency, formatDate } from '../utils/formatters';
+import { formatCurrency, formatDate, formatInvoiceNumber } from '../utils/formatters';
 
+// 1. Pixel-perfect PDF generation from the rendered DOM sheet
+export const generatePDFFromElement = async (
+  element: HTMLElement,
+  filename: string
+): Promise<void> => {
+  // Capture HTML DOM with html2canvas
+  const canvas = await html2canvas(element, {
+    scale: 2, // 2x DPI for crisp high-resolution rendering
+    useCORS: true,
+    logging: false,
+    backgroundColor: '#ffffff',
+  });
+
+  const imgData = canvas.toDataURL('image/png');
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+  });
+
+  const pdfWidth = pdf.internal.pageSize.getWidth(); // 210 mm
+  const pdfHeight = pdf.internal.pageSize.getHeight(); // 297 mm
+
+  const margin = 10; // 10mm margin
+  const imgWidth = pdfWidth - margin * 2; // 190 mm
+  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+  let heightLeft = imgHeight;
+  let position = margin;
+
+  pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
+  heightLeft -= pdfHeight - margin * 2;
+
+  while (heightLeft > 0) {
+    position = heightLeft - imgHeight + margin;
+    pdf.addPage();
+    pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight, undefined, 'FAST');
+    heightLeft -= pdfHeight - margin * 2;
+  }
+
+  pdf.save(filename);
+};
+
+// Helper: Sanitize text for standard PDF-lib fonts (Helvetica)
+const sanitizeText = (str: string): string => {
+  if (!str) return '';
+  // Replace Bengali Taka symbol ৳ with BDT and replace non-ASCII characters if needed
+  return str
+    .replace(/৳/g, 'BDT ')
+    .replace(/[^\x00-\x7F]/g, '');
+};
+
+// Helper: Draw right-aligned text
+const drawTextRight = (
+  page: any,
+  text: string,
+  rightX: number,
+  y: number,
+  size: number,
+  font: any,
+  color: any
+) => {
+  const safeStr = sanitizeText(text);
+  const textWidth = font.widthOfTextAtSize(safeStr, size);
+  page.drawText(safeStr, {
+    x: rightX - textWidth,
+    y,
+    size,
+    font,
+    color,
+  });
+};
+
+// Helper: Truncate text to fit max width
+const truncateToWidth = (
+  text: string,
+  maxWidth: number,
+  size: number,
+  font: any
+): string => {
+  let safeStr = sanitizeText(text);
+  if (!safeStr) return '';
+  if (font.widthOfTextAtSize(safeStr, size) <= maxWidth) {
+    return safeStr;
+  }
+  while (safeStr.length > 0 && font.widthOfTextAtSize(safeStr + '...', size) > maxWidth) {
+    safeStr = safeStr.slice(0, -1);
+  }
+  return safeStr + '...';
+};
+
+// 2. Pure programmatic PDF generation with strict layout bounds and no overlaps
 export const generateInvoicePDF = async (
   project: ProjectWithFinancials,
   client: Client | undefined,
   settings: BusinessSettings
 ): Promise<Uint8Array> => {
   const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([595.28, 841.89]); // A4 dimensions in points: 210mm x 297mm
+  const page = pdfDoc.addPage([595.28, 841.89]); // A4 dimensions in points
   const { width, height } = page.getSize();
 
   // Load fonts
@@ -24,6 +118,8 @@ export const generateInvoicePDF = async (
   const orangeColor = rgb(0.96, 0.62, 0.04); // #F59E0B
   const redColor = rgb(0.86, 0.15, 0.15); // #DC2626
 
+  const leftMargin = 50;
+  const rightMargin = width - 50; // 545.28
   let y = height - 50;
 
   // Header Logo / Business Name
@@ -40,7 +136,7 @@ export const generateInvoicePDF = async (
       }
       const imgDims = img.scale(30 / img.height);
       page.drawImage(img, {
-        x: 50,
+        x: leftMargin,
         y: y - imgDims.height,
         width: imgDims.width,
         height: imgDims.height,
@@ -52,8 +148,14 @@ export const generateInvoicePDF = async (
   }
 
   // Business Name
-  const busX = logoEmbedded ? 120 : 50;
-  page.drawText(settings.businessName || 'Freelance Graphic Designer', {
+  const busX = logoEmbedded ? 120 : leftMargin;
+  const busNameTruncated = truncateToWidth(
+    settings.businessName || 'Freelance Studio',
+    280,
+    16,
+    helveticaBold
+  );
+  page.drawText(busNameTruncated, {
     x: busX,
     y: y - 12,
     size: 16,
@@ -62,160 +164,148 @@ export const generateInvoicePDF = async (
   });
 
   // Business Contact Info
-  page.drawText([settings.email, settings.phone, settings.address].filter(Boolean).join('  |  '), {
+  const contactText = [settings.email, settings.phone, settings.address].filter(Boolean).join('  |  ');
+  const contactTruncated = truncateToWidth(contactText, 280, 8.5, helvetica);
+  page.drawText(contactTruncated, {
     x: busX,
     y: y - 28,
-    size: 9,
+    size: 8.5,
     font: helvetica,
     color: mutedText,
   });
 
-  // Top Right: INVOICE Label and Number
-  const invNumber = project.invoiceNumber || 'INV-0001';
-  page.drawText('INVOICE', {
-    x: width - 150,
-    y: y - 12,
-    size: 20,
-    font: helveticaBold,
-    color: darkText,
-  });
+  // Top Right: INVOICE Label and Number (Right Aligned)
+  const invNumber = formatInvoiceNumber(settings?.invoicePrefix, project.invoiceNumber);
+  drawTextRight(page, 'INVOICE', rightMargin, y - 12, 20, helveticaBold, darkText);
+  drawTextRight(page, invNumber, rightMargin, y - 28, 11, helveticaBold, mutedText);
 
-  page.drawText(invNumber, {
-    x: width - 150,
-    y: y - 28,
-    size: 11,
-    font: helveticaBold,
-    color: mutedText,
-  });
-
-  y -= 65;
+  y -= 60;
 
   // Divider line
   page.drawLine({
-    start: { x: 50, y },
-    end: { x: width - 50, y },
+    start: { x: leftMargin, y },
+    end: { x: rightMargin, y },
     thickness: 1,
     color: borderColor,
   });
 
   y -= 25;
 
-  // Billed To & Invoice Details Box (Two Columns)
-  const col1X = 50;
-  const col2X = width - 200;
-
-  // Left Column: Client Details
+  // Billed To (Left Column) & Invoice Details (Right Column)
+  let col1Y = y;
   page.drawText('BILLED TO', {
-    x: col1X,
-    y,
-    size: 9,
+    x: leftMargin,
+    y: col1Y,
+    size: 8.5,
     font: helveticaBold,
     color: mutedText,
   });
 
-  y -= 15;
-  page.drawText(client?.name || project.clientName || 'Valued Client', {
-    x: col1X,
-    y,
+  col1Y -= 15;
+  const clientNameTrunc = truncateToWidth(
+    client?.name || project.clientName || 'Valued Client',
+    240,
+    12,
+    helveticaBold
+  );
+  page.drawText(clientNameTrunc, {
+    x: leftMargin,
+    y: col1Y,
     size: 12,
     font: helveticaBold,
     color: darkText,
   });
 
   if (client?.company) {
-    y -= 14;
-    page.drawText(client.company, {
-      x: col1X,
-      y,
-      size: 10,
+    col1Y -= 14;
+    const compTrunc = truncateToWidth(client.company, 240, 9.5, helvetica);
+    page.drawText(compTrunc, {
+      x: leftMargin,
+      y: col1Y,
+      size: 9.5,
       font: helvetica,
       color: darkText,
     });
   }
 
   if (client?.email) {
-    y -= 14;
-    page.drawText(client.email, {
-      x: col1X,
-      y,
-      size: 9,
+    col1Y -= 14;
+    const emailTrunc = truncateToWidth(client.email, 240, 8.5, helvetica);
+    page.drawText(emailTrunc, {
+      x: leftMargin,
+      y: col1Y,
+      size: 8.5,
       font: helvetica,
       color: mutedText,
     });
   }
 
   if (client?.phone) {
-    y -= 14;
-    page.drawText(client.phone, {
-      x: col1X,
-      y,
-      size: 9,
+    col1Y -= 14;
+    const phoneTrunc = truncateToWidth(client.phone, 240, 8.5, helvetica);
+    page.drawText(phoneTrunc, {
+      x: leftMargin,
+      y: col1Y,
+      size: 8.5,
       font: helvetica,
       color: mutedText,
     });
   }
 
-  // Right Column: Date & Status
-  let rightY = y + (client?.company ? 28 : 14);
-  page.drawText('INVOICE DETAILS', {
-    x: col2X,
-    y: rightY,
-    size: 9,
-    font: helveticaBold,
-    color: mutedText,
-  });
+  // Right Column: Invoice Details (Right Aligned)
+  let col2Y = y;
+  drawTextRight(page, 'INVOICE DETAILS', rightMargin, col2Y, 8.5, helveticaBold, mutedText);
 
-  rightY -= 15;
-  page.drawText(`Date: ${formatDate(project.createdDate)}`, {
-    x: col2X,
-    y: rightY,
-    size: 10,
-    font: helvetica,
-    color: darkText,
-  });
+  col2Y -= 15;
+  drawTextRight(
+    page,
+    `Date Issued: ${formatDate(project.createdDate)}`,
+    rightMargin,
+    col2Y,
+    9.5,
+    helvetica,
+    darkText
+  );
 
-  rightY -= 15;
+  col2Y -= 14;
   const statusColor = project.status === 'Paid' ? greenColor : project.status === 'Partial' ? orangeColor : redColor;
-  page.drawText(`Status: ${project.status.toUpperCase()}`, {
-    x: col2X,
-    y: rightY,
-    size: 10,
-    font: helveticaBold,
-    color: statusColor,
-  });
+  drawTextRight(
+    page,
+    `Status: ${project.status.toUpperCase()}`,
+    rightMargin,
+    col2Y,
+    9.5,
+    helveticaBold,
+    statusColor
+  );
 
-  y = Math.min(y, rightY) - 30;
+  y = Math.min(col1Y, col2Y) - 30;
 
   // Main Services Table Header
   page.drawRectangle({
-    x: 50,
+    x: leftMargin,
     y: y - 8,
-    width: width - 100,
+    width: rightMargin - leftMargin,
     height: 24,
     color: lightBg,
   });
 
   page.drawText('PROJECT & SERVICE', {
-    x: 60,
+    x: leftMargin + 10,
     y,
-    size: 9,
+    size: 8.5,
     font: helveticaBold,
     color: darkText,
   });
 
-  page.drawText('TOTAL PRICE', {
-    x: width - 150,
-    y,
-    size: 9,
-    font: helveticaBold,
-    color: darkText,
-  });
+  drawTextRight(page, 'TOTAL PRICE', rightMargin - 10, y, 8.5, helveticaBold, darkText);
 
   y -= 25;
 
   // Project Line Item
-  page.drawText(project.projectName, {
-    x: 60,
+  const projNameTrunc = truncateToWidth(project.projectName, 340, 11, helveticaBold);
+  page.drawText(projNameTrunc, {
+    x: leftMargin + 10,
     y,
     size: 11,
     font: helveticaBold,
@@ -223,19 +313,14 @@ export const generateInvoicePDF = async (
   });
 
   const priceFormatted = formatCurrency(project.totalPrice, settings.currencySymbol);
-  page.drawText(priceFormatted, {
-    x: width - 150,
-    y,
-    size: 11,
-    font: helveticaBold,
-    color: darkText,
-  });
+  drawTextRight(page, priceFormatted, rightMargin - 10, y, 11, helveticaBold, darkText);
 
   y -= 14;
-  page.drawText(`Service: ${project.service}`, {
-    x: 60,
+  const serviceTrunc = truncateToWidth(`Service: ${project.service}`, 340, 8.5, helvetica);
+  page.drawText(serviceTrunc, {
+    x: leftMargin + 10,
     y,
-    size: 9,
+    size: 8.5,
     font: helvetica,
     color: mutedText,
   });
@@ -243,62 +328,64 @@ export const generateInvoicePDF = async (
   y -= 20;
 
   page.drawLine({
-    start: { x: 50, y },
-    end: { x: width - 50, y },
+    start: { x: leftMargin, y },
+    end: { x: rightMargin, y },
     thickness: 1,
     color: borderColor,
   });
 
   y -= 25;
 
-  // Payment History Section (If any payments exist)
+  // Partial Payment Breakdown Section (If any payments exist)
   if (project.payments && project.payments.length > 0) {
-    page.drawText(`PARTIAL PAYMENT BREAKDOWN (${project.payments.length} ${project.payments.length === 1 ? 'INSTALLMENT' : 'SEPARATE INSTALLMENTS'})`, {
-      x: 50,
-      y,
-      size: 9,
-      font: helveticaBold,
-      color: darkText,
-    });
+    page.drawText(
+      `PARTIAL PAYMENT BREAKDOWN (${project.payments.length} ${project.payments.length === 1 ? 'INSTALLMENT' : 'SEPARATE INSTALLMENTS'})`,
+      {
+        x: leftMargin,
+        y,
+        size: 8.5,
+        font: helveticaBold,
+        color: darkText,
+      }
+    );
 
     y -= 15;
 
     // Table Header
     page.drawRectangle({
-      x: 50,
+      x: leftMargin,
       y: y - 6,
-      width: width - 100,
+      width: rightMargin - leftMargin,
       height: 20,
       color: lightBg,
     });
 
-    page.drawText('INSTALLMENT', { x: 60, y, size: 8, font: helveticaBold, color: mutedText });
-    page.drawText('DATE PAID', { x: 150, y, size: 8, font: helveticaBold, color: mutedText });
-    page.drawText('NOTES', { x: 250, y, size: 8, font: helveticaBold, color: mutedText });
-    page.drawText('AMOUNT PAID', { x: width - 150, y, size: 8, font: helveticaBold, color: mutedText });
+    page.drawText('INSTALLMENT', { x: leftMargin + 10, y, size: 8, font: helveticaBold, color: mutedText });
+    page.drawText('DATE PAID', { x: leftMargin + 110, y, size: 8, font: helveticaBold, color: mutedText });
+    page.drawText('NOTES', { x: leftMargin + 200, y, size: 8, font: helveticaBold, color: mutedText });
+    drawTextRight(page, 'AMOUNT PAID', rightMargin - 10, y, 8, helveticaBold, mutedText);
 
     y -= 18;
 
     project.payments.forEach((pay, idx) => {
-      page.drawText(`Payment #${idx + 1}`, { x: 60, y, size: 9, font: helveticaBold, color: darkText });
-      page.drawText(formatDate(pay.date), { x: 150, y, size: 9, font: helvetica, color: darkText });
-      page.drawText(pay.notes || `Partial Payment #${idx + 1}`, { x: 250, y, size: 9, font: helvetica, color: mutedText });
-      page.drawText(`+ ${formatCurrency(pay.amount, settings.currencySymbol)}`, {
-        x: width - 150,
-        y,
-        size: 9,
-        font: helveticaBold,
-        color: greenColor,
-      });
+      page.drawText(`Payment #${idx + 1}`, { x: leftMargin + 10, y, size: 8.5, font: helveticaBold, color: darkText });
+      page.drawText(formatDate(pay.date), { x: leftMargin + 110, y, size: 8.5, font: helvetica, color: darkText });
+      
+      const notesTrunc = truncateToWidth(pay.notes || `Partial Payment #${idx + 1}`, 150, 8.5, helvetica);
+      page.drawText(notesTrunc, { x: leftMargin + 200, y, size: 8.5, font: helvetica, color: mutedText });
+      
+      const amtStr = `+ ${formatCurrency(pay.amount, settings.currencySymbol)}`;
+      drawTextRight(page, amtStr, rightMargin - 10, y, 8.5, helveticaBold, greenColor);
+      
       y -= 16;
     });
 
-    y -= 10;
+    y -= 12;
   }
 
   // Financial Summary Box (Right aligned)
   const sumBoxWidth = 220;
-  const sumBoxX = width - 50 - sumBoxWidth;
+  const sumBoxX = rightMargin - sumBoxWidth;
 
   page.drawRectangle({
     x: sumBoxX,
@@ -311,70 +398,49 @@ export const generateInvoicePDF = async (
   });
 
   let sumY = y - 5;
-  page.drawText('Total Amount:', { x: sumBoxX + 15, y: sumY, size: 9, font: helvetica, color: mutedText });
-  page.drawText(formatCurrency(project.totalPrice, settings.currencySymbol), {
-    x: sumBoxX + 120,
-    y: sumY,
-    size: 9,
-    font: helveticaBold,
-    color: darkText,
-  });
+  page.drawText('Total Project Price:', { x: sumBoxX + 12, y: sumY, size: 8.5, font: helvetica, color: mutedText });
+  drawTextRight(page, formatCurrency(project.totalPrice, settings.currencySymbol), rightMargin - 12, sumY, 8.5, helveticaBold, darkText);
 
   sumY -= 16;
-  page.drawText('Total Paid:', { x: sumBoxX + 15, y: sumY, size: 9, font: helvetica, color: mutedText });
-  page.drawText(formatCurrency(project.totalReceived, settings.currencySymbol), {
-    x: sumBoxX + 120,
-    y: sumY,
-    size: 9,
-    font: helveticaBold,
-    color: greenColor,
-  });
+  page.drawText('Total Received:', { x: sumBoxX + 12, y: sumY, size: 8.5, font: helvetica, color: mutedText });
+  drawTextRight(page, formatCurrency(project.totalReceived, settings.currencySymbol), rightMargin - 12, sumY, 8.5, helveticaBold, greenColor);
 
-  sumY -= 18;
+  sumY -= 16;
   page.drawLine({
     start: { x: sumBoxX + 10, y: sumY + 12 },
-    end: { x: sumBoxX + sumBoxWidth - 10, y: sumY + 12 },
+    end: { x: rightMargin - 10, y: sumY + 12 },
     thickness: 1,
     color: borderColor,
   });
 
-  page.drawText('Amount Due:', { x: sumBoxX + 15, y: sumY, size: 10, font: helveticaBold, color: darkText });
-  page.drawText(formatCurrency(project.remainingAmount, settings.currencySymbol), {
-    x: sumBoxX + 120,
-    y: sumY,
-    size: 11,
-    font: helveticaBold,
-    color: project.remainingAmount > 0 ? redColor : greenColor,
-  });
+  page.drawText('Amount Due:', { x: sumBoxX + 12, y: sumY, size: 9.5, font: helveticaBold, color: darkText });
+  const remColor = project.remainingAmount > 0 ? redColor : greenColor;
+  drawTextRight(page, formatCurrency(project.remainingAmount, settings.currencySymbol), rightMargin - 12, sumY, 9.5, helveticaBold, remColor);
 
-  y = sumY - 50;
+  y = sumY - 45;
 
   // Thank you & Footer
   page.drawText('Thank you for your business!', {
-    x: 50,
+    x: leftMargin,
     y,
-    size: 11,
+    size: 10.5,
     font: helveticaBold,
     color: darkText,
   });
 
   y -= 14;
-  page.drawText('For questions regarding this invoice, please contact ' + (settings.email || settings.phone || 'us.'), {
-    x: 50,
+  const contactFoot = 'Please direct all payment inquiries to ' + (settings.email || settings.phone || 'us.');
+  const contactFootTrunc = truncateToWidth(contactFoot, 480, 8.5, helvetica);
+  page.drawText(contactFootTrunc, {
+    x: leftMargin,
     y,
-    size: 9,
+    size: 8.5,
     font: helvetica,
     color: mutedText,
   });
 
   // Footer Branding
-  page.drawText('Generated via Client Ledger', {
-    x: width / 2 - 60,
-    y: 30,
-    size: 8,
-    font: helvetica,
-    color: mutedText,
-  });
+  drawTextRight(page, 'Generated via Client Ledger', rightMargin, 30, 8, helvetica, mutedText);
 
   const pdfBytes = await pdfDoc.save();
   return pdfBytes;

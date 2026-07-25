@@ -21,7 +21,7 @@ import { InvoicePreviewModal } from './components/invoices/InvoicePreviewModal';
 
 import { Client, ProjectWithFinancials, Project } from './types';
 import { getClients, addClient, updateClient, deleteClient } from './services/clientService';
-import { getProjectsWithFinancials, addProject, deleteProject } from './services/projectService';
+import { getProjectsWithFinancials, addProject, deleteProject, deleteInvoice, ensureProjectInvoice } from './services/projectService';
 import { addPayment, deletePayment } from './services/paymentService';
 import { seedSampleData } from './services/demoDataService';
 
@@ -61,10 +61,20 @@ const MainContent: React.FC = () => {
 
     try {
       setIsLoadingData(true);
-      const [fetchedClients, fetchedProjects] = await Promise.all([
+      let [fetchedClients, fetchedProjects] = await Promise.all([
         getClients(activeUserId),
         getProjectsWithFinancials(activeUserId),
       ]);
+
+      // If workspace is empty for this user, seed initial sample data into Firestore
+      if (fetchedClients.length === 0 && fetchedProjects.length === 0) {
+        await seedSampleData(activeUserId);
+        [fetchedClients, fetchedProjects] = await Promise.all([
+          getClients(activeUserId),
+          getProjectsWithFinancials(activeUserId),
+        ]);
+      }
+
       setClients(fetchedClients);
       setProjects(fetchedProjects);
     } catch (error) {
@@ -114,6 +124,26 @@ const MainContent: React.FC = () => {
       }
       await loadWorkspaceData();
     }
+  };
+
+  const handleDeleteInvoice = async (projectId: string) => {
+    if (confirm('Are you sure you want to delete this invoice? The project record will remain intact.')) {
+      await deleteInvoice(projectId);
+      if (selectedProjectInvoice?.id === projectId) {
+        setSelectedProjectInvoice(null);
+      }
+      await loadWorkspaceData();
+    }
+  };
+
+  const handlePreviewInvoice = async (project: ProjectWithFinancials) => {
+    let projToPreview = project;
+    if (activeUserId && (!project.invoiceNumber || project.invoiceDeleted)) {
+      const newInv = await ensureProjectInvoice(activeUserId, project);
+      projToPreview = { ...project, invoiceNumber: newInv, invoiceDeleted: false };
+      await loadWorkspaceData();
+    }
+    setSelectedProjectInvoice(projToPreview);
   };
 
   // Handle Payment Add/Delete
@@ -229,7 +259,7 @@ const MainContent: React.FC = () => {
                         setIsAddProjectOpen(true);
                       }}
                       onSelectProject={(p) => setSelectedProjectDetail(p)}
-                      onPreviewInvoice={(p) => setSelectedProjectInvoice(p)}
+                      onPreviewInvoice={handlePreviewInvoice}
                       onRecordPayment={(p) => setSelectedProjectPayment(p)}
                       onDeleteProject={handleDeleteProject}
                       searchQuery={searchQuery}
@@ -267,9 +297,9 @@ const MainContent: React.FC = () => {
                         setIsAddProjectOpen(true);
                       }}
                       onSelectProject={(p) => setSelectedProjectDetail(p)}
-                      onPreviewInvoice={(p) => setSelectedProjectInvoice(p)}
+                      onPreviewInvoice={handlePreviewInvoice}
                       onRecordPayment={(p) => setSelectedProjectPayment(p)}
-                      onDeleteProject={handleDeleteProject}
+                      onDeleteInvoice={handleDeleteInvoice}
                       searchQuery={searchQuery}
                     />
                   )}

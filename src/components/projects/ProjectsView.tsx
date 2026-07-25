@@ -13,7 +13,7 @@ import {
   Layers
 } from 'lucide-react';
 import { ProjectWithFinancials, Client, PaymentStatus } from '../../types';
-import { formatCurrency, formatDate } from '../../utils/formatters';
+import { formatCurrency, formatDate, formatInvoiceNumber } from '../../utils/formatters';
 import { Badge } from '../common/Badge';
 import { Pagination } from '../common/Pagination';
 import { useAuth } from '../../context/AuthContext';
@@ -55,10 +55,12 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
       // Search filter
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
+      const formattedNum = formatInvoiceNumber(settings?.invoicePrefix, p.invoiceNumber).toLowerCase();
       return (
         p.projectName.toLowerCase().includes(q) ||
         p.clientName.toLowerCase().includes(q) ||
         p.service.toLowerCase().includes(q) ||
+        formattedNum.includes(q) ||
         (p.invoiceNumber && p.invoiceNumber.toLowerCase().includes(q))
       );
     });
@@ -156,7 +158,7 @@ export const ProjectsView: React.FC<ProjectsViewProps> = ({
                 <div className="space-y-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold text-[#6B7280] uppercase tracking-wider bg-gray-100 px-2 py-0.5 rounded-md">
-                      {p.invoiceNumber || 'INV-0001'}
+                      {p.invoiceNumber && !p.invoiceDeleted ? formatInvoiceNumber(settings?.invoicePrefix, p.invoiceNumber) : 'No Invoice'}
                     </span>
                     <span className="text-xs text-[#6B7280]">• {p.service}</span>
                   </div>

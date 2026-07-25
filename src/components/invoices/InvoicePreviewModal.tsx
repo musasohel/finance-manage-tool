@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { X, Download, Printer, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { ProjectWithFinancials, Client } from '../../types';
 import { useAuth } from '../../context/AuthContext';
-import { formatCurrency, formatDate } from '../../utils/formatters';
-import { generateInvoicePDF, downloadPDF } from '../../services/pdfService';
+import { formatCurrency, formatDate, formatInvoiceNumber } from '../../utils/formatters';
+import { generateInvoicePDF, downloadPDF, generatePDFFromElement } from '../../services/pdfService';
 import { Badge } from '../common/Badge';
 
 interface InvoicePreviewModalProps {
@@ -36,15 +36,29 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
     currencySymbol: 'BDT',
   };
 
+  const formattedInvNum = formatInvoiceNumber(currentSettings.invoicePrefix, project.invoiceNumber);
+
   const handleDownloadPDF = async () => {
     try {
       setIsGenerating(true);
-      const pdfBytes = await generateInvoicePDF(project, client, currentSettings);
-      const filename = `Invoice_${project.invoiceNumber || 'INV-0001'}_${project.clientName.replace(/\s+/g, '_')}.pdf`;
-      downloadPDF(pdfBytes, filename);
+      const filename = `Invoice_${formattedInvNum}_${project.clientName.replace(/\s+/g, '_')}.pdf`;
+      
+      const invoiceElement = document.getElementById('invoice-printable-sheet');
+      if (invoiceElement) {
+        await generatePDFFromElement(invoiceElement, filename);
+      } else {
+        const pdfBytes = await generateInvoicePDF(project, client, currentSettings);
+        downloadPDF(pdfBytes, filename);
+      }
     } catch (err) {
-      console.error('Failed to generate PDF:', err);
-      alert('Failed to generate PDF invoice. Please check logo format or try again.');
+      console.error('Failed to capture invoice canvas PDF:', err);
+      try {
+        const pdfBytes = await generateInvoicePDF(project, client, currentSettings);
+        const filename = `Invoice_${formattedInvNum}_${project.clientName.replace(/\s+/g, '_')}.pdf`;
+        downloadPDF(pdfBytes, filename);
+      } catch (fallbackErr) {
+        alert('Failed to generate PDF invoice. Please try printing directly or try again.');
+      }
     } finally {
       setIsGenerating(false);
     }
@@ -55,14 +69,14 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-[#E5E7EB] overflow-hidden my-6 transition-all">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 overflow-y-auto print:p-0 print:bg-white print:static">
+      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-[#E5E7EB] overflow-hidden my-6 transition-all print:my-0 print:shadow-none print:border-none print:max-w-none">
         {/* Top Action Bar */}
-        <div className="bg-[#111827] text-white px-6 py-4 flex items-center justify-between">
+        <div className="bg-[#111827] text-white px-6 py-4 flex items-center justify-between no-print">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-5 w-5 text-emerald-400" />
             <span className="font-semibold text-sm">
-              Invoice Preview • {project.invoiceNumber || 'INV-0001'}
+              Invoice Preview • {formattedInvNum}
             </span>
           </div>
 
@@ -92,7 +106,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
         </div>
 
         {/* Invoice Printable Sheet */}
-        <div className="p-8 sm:p-12 space-y-8 bg-white font-sans text-[#111827] selection:bg-gray-100 print:p-0">
+        <div id="invoice-printable-sheet" className="p-8 sm:p-12 space-y-8 bg-white font-sans text-[#111827] selection:bg-gray-100 print:p-4">
           {/* Header Row */}
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6 pb-8 border-b border-[#E5E7EB]">
             <div className="flex items-start gap-4">
@@ -126,7 +140,7 @@ export const InvoicePreviewModal: React.FC<InvoicePreviewModalProps> = ({
                 INVOICE
               </span>
               <p className="text-sm font-semibold text-[#6B7280] mt-0.5">
-                {project.invoiceNumber || 'INV-0001'}
+                {formattedInvNum}
               </p>
               <div className="mt-2">
                 <Badge status={project.status} size="md" />

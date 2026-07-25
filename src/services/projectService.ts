@@ -112,3 +112,33 @@ export const deleteProject = async (id: string): Promise<void> => {
   const docRef = doc(db, COLLECTION, id);
   await deleteDoc(docRef);
 };
+
+export const deleteInvoice = async (projectId: string): Promise<void> => {
+  const docRef = doc(db, COLLECTION, projectId);
+  await updateDoc(docRef, {
+    invoiceDeleted: true,
+    invoiceNumber: '',
+    updatedAt: new Date().toISOString()
+  });
+};
+
+export const ensureProjectInvoice = async (
+  userId: string,
+  project: ProjectWithFinancials
+): Promise<string> => {
+  if (project.invoiceNumber && !project.invoiceDeleted) {
+    return project.invoiceNumber;
+  }
+  const settings = await getBusinessSettings(userId);
+  const invoiceNum = settings.nextInvoiceNumber || 1;
+  const invoiceNumber = formatInvoiceNumber(settings.invoicePrefix || 'INV', invoiceNum);
+
+  const docRef = doc(db, COLLECTION, project.id);
+  await updateDoc(docRef, {
+    invoiceNumber,
+    invoiceDeleted: false,
+    updatedAt: new Date().toISOString()
+  });
+  await updateBusinessSettings(userId, { nextInvoiceNumber: invoiceNum + 1 });
+  return invoiceNumber;
+};
